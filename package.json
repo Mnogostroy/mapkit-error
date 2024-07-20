@@ -1,0 +1,22 @@
+{
+  "name": "mnogostroy",
+  "main": "src/app.ts",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@nativescript/core": "~8.7.0",
+    "@vueuse/core": "^10.10.0",
+    "nativescript-vue": "3.0.0-rc.2",
+    "router-vue-native": "^2.1.0"
+  },
+  "devDependencies": {
+    "@nativescript/android": "8.6.0-next.2023-10-06-6437396101",
+    "@nativescript/ios": "8.6.1",
+    "@nativescript/tailwind": "~2.1.0",
+    "@nativescript/types": "~8.7.0",
+    "@nativescript/webpack": "~5.0.0",
+    "@types/node": "~17.0.21",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
+  }
+}
