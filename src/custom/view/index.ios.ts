@@ -89,20 +89,20 @@ export class YandexMapView extends View {
 
     placemark.setIconWithImage(UIImage.imageNamed('shop_marker'))
 
-    // console.log(mapObjects)
-    // const callback = () => {
-    //   console.log('tapped callback')
-    // }
+    console.log(mapObjects)
+    const callback = () => {
+      console.log('tapped callback')
+    }
 
-    // const tapListener = new MyMapObjectTapListener(
-    //   (mapObject: any, point: any) => {
-    //     console.log('Shop marker tapped:', info)
-    //     if (this.onClick) {
-    //       this.onClick(latitude, longitude)
-    //     }
-    //   }
-    // )
-    // placemark.addTapListenerWithTapListener(tapListener)
+    const tapListener = new MyMapObjectTapListener(
+      (mapObject: any, point: any) => {
+        console.log('Shop marker tapped:', info)
+        if (this.onClick) {
+          this.onClick(latitude, longitude)
+        }
+      }
+    )
+    placemark.addTapListenerWithTapListener(tapListener)
 
     this.markers.push(targetPoint)
   }
