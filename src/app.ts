@@ -1,7 +1,7 @@
 import { createApp, h, registerElement } from 'nativescript-vue'
 import App from '~/App.vue'
 import { YandexMapView } from '~/custom/YandexMapView'
-import { Application, isAndroid } from '@nativescript/core'
+import { Application, isIOS, Utils } from '@nativescript/core'
 import { AppYandexMaps } from '~/plugins/app-maps'
 import { router } from '~/plugins/app-router'
 
@@ -10,23 +10,49 @@ const app = createApp({
 })
 
 declare const YMKMapKit: any
+declare const ru: any
+declare const UIResponder: any
+declare const UIApplicationDelegate: any
 
-if (isAndroid) {
-  // new AppYandexMaps(Utils.android.getApplicationContext())
+if (isIOS) {
+  const CustomAppDelegate = (<any>UIResponder).extend(
+    {
+      // any existing delegate first, then override below with customizations
+      ...(Application.ios.delegate ? Application.ios.delegate.prototype : {}),
+      applicationDidFinishLaunchingWithOptions: function () {
+        YMKMapKit.setApiKey('ede1bf3a-0f5a-4b84-ac98-ec94baf3e422')
+        YMKMapKit.setLocale('ru_RU')
+        YMKMapKit.sharedInstance().onStart()
+        return true
+      },
+    },
+    {
+      protocols: [UIApplicationDelegate],
+    }
+  )
+
+  Application.ios.delegate = CustomAppDelegate
 } else {
-  const apiKey = 'ede1bf3a-0f5a-4b84-ac98-ec94baf3e422'
+  const activity = Application.android.startActivity as any
 
-  YMKMapKit.setApiKey(apiKey)
-  YMKMapKit.sharedInstance()
+  let mapView: any = null
 
-  // Application.ios.addDelegateHandler(
-  //   'applicationDidFinishLaunchingWithOptions',
-  //   () => {
-  //     YMKMapKit.setApiKey(apiKey)
-  //     YMKMapKit.sharedInstance()
-  //     return true
-  //   }
-  // )
+  Application.android.on(
+    Application.AndroidApplication.activityCreatedEvent,
+    (args) => {
+      mapView = new ru.mnogostroy.mapkit.CustomNativeScriptActivity(
+        Utils.android.getApplicationContext()
+      )
+      mapView.kitStart()
+    }
+  )
+
+  Application.android.on(
+    Application.AndroidApplication.activityStoppedEvent,
+    (args) => {
+      mapView.kitStop()
+    }
+  )
 }
 
 // declare const android: any

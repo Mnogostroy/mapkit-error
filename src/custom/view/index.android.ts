@@ -37,6 +37,8 @@ export class YandexMapView extends View {
   createNativeView() {
     const androidContext = Utils.android.getApplicationContext()
 
+    console.log('createNativeView', androidContext)
+
     // MapKitFactory.setApiKey('ede1bf3a-0f5a-4b84-ac98-ec94baf3e422')
     // MapKitFactory.initialize(context)
     // await new ru.mnogostroy.mapkit.MnogoStroyYandexMapView(androidContext)
@@ -45,6 +47,13 @@ export class YandexMapView extends View {
       43.438172,
       39.911178
     )
+
+    // if (
+    //   activity &&
+    //   activity instanceof ru.mnogostroy.mapkit.CustomNativeScriptActivity
+    // ) {
+    //   activity.setMapView(this.mapView)
+    // }
 
     // const MyMapLoadListener = new ru.mnogostroy.mapkit.MyMapLoadListener()
     // this.mapview.addMapLoadedListener(MyMapLoadListener)
@@ -240,5 +249,9 @@ export class YandexMapView extends View {
     //   )
     //   .finish()
     // java.lang.Runtime.getRuntime().exit(0)
+  }
+
+  zoomToFitAllMarkers() {
+    this.mapview.zoomToFitAllMarkers()
   }
 }

@@ -1,4 +1,3 @@
-// @ts-ignore
 // @ts-nocheck
 /* eslint-disable */
 
@@ -15,19 +14,27 @@ declare const MKMapItem: any
 declare const MKPlacemark: any
 declare const CLLocationCoordinate2DMake: any
 declare const YMKMapObject: any
+declare const YMKAnimation: any // Добавил объявление для YMKAnimation
 
 declare const YMKMapObjectTapListener: any
 
-class MapObjectTapListenerImpl implements YMKMapObjectTapListener {
-  onMapObjectTap(mapObject: YMKMapObject, point: YMKPoint): boolean {
-    console.log(`Tapped the point ${point.longitude}, ${point.latitude}`)
-    return true
+class MyMapObjectTapListener implements YMKMapObjectTapListener {
+  constructor(private readonly callback: Function) {}
+
+  onMapObjectTapWithMapObject(mapObject: YMKMapObject, point: YMKPoint) {
+    console.log('Marker tapped!')
+    // @ts-ignore
+    if (mapObject instanceof YMKPlacemarkMapObject) {
+      this.callback(mapObject, point)
+    }
   }
 }
 
 export class YandexMapView extends View {
+  private markers: any[] = []
   private mapView: any
   private onClick: Function | null = null
+  private tapListener: any
 
   constructor() {
     super()
@@ -35,7 +42,8 @@ export class YandexMapView extends View {
   }
 
   createNativeView() {
-    console.log('createNativeView')
+    console.log(YMKMapObjectTapListener)
+    // @ts-ignore
     if (!this.mapView) this.mapView = new YMKMapView()
 
     return this.mapView
@@ -51,10 +59,7 @@ export class YandexMapView extends View {
   }
 
   initMap() {
-    // const apiKey = 'ede1bf3a-0f5a-4b84-ac98-ec94baf3e422'
-    // YMKMapKit.setApiKey(apiKey)
-
-    // console.log(YMKMapKit, this.mapView)
+    // @ts-ignore
     if (!this.mapView) this.mapView = new YMKMapView()
 
     const targetPoint = YMKPoint.pointWithLatitudeLongitude(
@@ -72,31 +77,38 @@ export class YandexMapView extends View {
   }
 
   addShop(latitude: number, longitude: number, info: string) {
-    const tapListener = new MapObjectTapListenerImpl()
     const targetPoint = YMKPoint.pointWithLatitudeLongitude(latitude, longitude)
+
     const mapObjects = this.mapView.mapWindow.map.mapObjects
 
-    const placemark = mapObjects.addPlacemark()
+    // console.log(this.mapView.mapWindow.map)
+
+    const placemark = mapObjects.addPlacemarkWithPoint(targetPoint)
 
     placemark.isDraggable = true
 
-    console.log(placemark)
+    placemark.setIconWithImage(UIImage.imageNamed('shop_marker'))
 
-    placemark.setIconWithImage(
-      UIImage.imageNamed('shop_marker') ?? new UIImage()
-    )
+    // console.log(mapObjects)
+    // const callback = () => {
+    //   console.log('tapped callback')
+    // }
 
-    placemark.geometry = targetPoint
+    // const tapListener = new MyMapObjectTapListener(
+    //   (mapObject: any, point: any) => {
+    //     console.log('Shop marker tapped:', info)
+    //     if (this.onClick) {
+    //       this.onClick(latitude, longitude)
+    //     }
+    //   }
+    // )
+    // placemark.addTapListenerWithTapListener(tapListener)
 
-    console.log(tapListener)
-    console.log(placemark)
-    // placemark.addTapListener(tapListener)
+    this.markers.push(targetPoint)
   }
 
   setMarkerClick(callback: Function) {
-    console.log('setMarkerClick', callback)
     this.onClick = callback
-    console.log(typeof this.onClick)
   }
 
   zoomIn() {
@@ -104,11 +116,16 @@ export class YandexMapView extends View {
     const newCameraPosition =
       YMKCameraPosition.cameraPositionWithTargetZoomAzimuthTilt(
         cameraPosition.target,
-        cameraPosition.zoom + 1,
+        cameraPosition.zoom + 0.5,
         cameraPosition.azimuth,
         cameraPosition.tilt
       )
-    this.mapView.mapWindow.map.moveWithCameraPosition(newCameraPosition)
+    const animation = YMKAnimation.animationWithTypeDuration(1, 0.5)
+    this.mapView.mapWindow.map.moveWithCameraPositionAnimationCameraCallback(
+      newCameraPosition,
+      animation,
+      null
+    )
   }
 
   zoomOut() {
@@ -116,11 +133,17 @@ export class YandexMapView extends View {
     const newCameraPosition =
       YMKCameraPosition.cameraPositionWithTargetZoomAzimuthTilt(
         cameraPosition.target,
-        cameraPosition.zoom - 1,
+        cameraPosition.zoom - 0.5,
         cameraPosition.azimuth,
         cameraPosition.tilt
       )
-    this.mapView.mapWindow.map.moveWithCameraPosition(newCameraPosition)
+    const animation = YMKAnimation.animationWithTypeDuration(1, 0.5) // 1 - smooth animation, 0.5s duration
+
+    this.mapView.mapWindow.map.moveWithCameraPositionAnimationCameraCallback(
+      newCameraPosition,
+      animation,
+      null
+    )
   }
 
   changeCenter(latitude: number, longitude: number) {
@@ -132,11 +155,19 @@ export class YandexMapView extends View {
         0,
         0
       )
-    this.mapView.mapWindow.map.moveWithCameraPosition(cameraPosition)
+
+    const animation = YMKAnimation.animationWithTypeDuration(1, 0.5) // 1 - smooth animation, 0.5s duration
+
+    this.mapView.mapWindow.map.moveWithCameraPositionAnimationCameraCallback(
+      cameraPosition,
+      animation,
+      null
+    )
   }
 
   clearMap() {
     this.mapView.mapWindow.map.mapObjects.clear()
+    this.markers = []
   }
 
   getRoute(
@@ -201,5 +232,66 @@ export class YandexMapView extends View {
       true,
       null
     )
+  }
+
+  zoomToFitAllMarkers(full: boolean) {
+    if (this.markers.length === 0) return
+
+    let minLat = Number.MAX_VALUE
+    let minLon = Number.MAX_VALUE
+    let maxLat = Number.MIN_VALUE
+    let maxLon = Number.MIN_VALUE
+
+    for (const marker of this.markers) {
+      if (marker.latitude < minLat) minLat = marker.latitude
+      if (marker.longitude < minLon) minLon = marker.longitude
+      if (marker.latitude > maxLat) maxLat = marker.latitude
+      if (marker.longitude > maxLon) maxLon = marker.longitude
+    }
+
+    const centerLat = (minLat + maxLat) / 2
+    const centerLon = (minLon + maxLon) / 2
+    const targetPoint = YMKPoint.pointWithLatitudeLongitude(
+      centerLat,
+      centerLon
+    )
+
+    const latDelta = maxLat - minLat
+    const lonDelta = maxLon - minLon
+
+    // Adjust zoom level based on the deltas
+    const zoomLevel = this.calculateZoomLevel(latDelta, lonDelta, full)
+
+    const newCameraPosition =
+      YMKCameraPosition.cameraPositionWithTargetZoomAzimuthTilt(
+        targetPoint,
+        zoomLevel,
+        0,
+        0
+      )
+
+    this.mapView.mapWindow.map.moveWithCameraPosition(newCameraPosition)
+  }
+
+  calculateZoomLevel(
+    latDelta: number,
+    lonDelta: number,
+    full: boolean
+  ): number {
+    const minLatDelta = 0.0001
+    const minLonDelta = 0.0001
+
+    latDelta = Math.max(latDelta, minLatDelta)
+    lonDelta = Math.max(lonDelta, minLonDelta)
+
+    const mapHeightInDegrees = 0.1
+    const mapWidthInDegrees = 0.1
+
+    const zoomLevelLat = Math.log2(mapHeightInDegrees / latDelta)
+    const zoomLevelLon = Math.log2(mapWidthInDegrees / lonDelta)
+
+    const zoomLevel = Math.min(zoomLevelLat, zoomLevelLon)
+
+    return Math.max(Math.min(zoomLevel, 17), full ? 7.5 : 11)
   }
 }

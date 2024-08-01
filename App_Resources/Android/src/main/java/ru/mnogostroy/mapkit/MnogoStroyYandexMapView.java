@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.yandex.mapkit.MapKitFactory;
@@ -19,25 +20,21 @@ import com.yandex.mapkit.map.MapObjectTapListener;
 import com.yandex.mapkit.map.MapLoadStatistics;
 import com.yandex.mapkit.map.MapLoadedListener;
 import com.yandex.mapkit.map.PlacemarkMapObject;
-import com.yandex.mapkit.RequestPoint;
-import com.yandex.mapkit.RequestPointType;
 import com.yandex.mapkit.geometry.Point;
 import com.yandex.mapkit.map.CameraPosition;
-import com.yandex.mapkit.map.IconStyle;
-import com.yandex.mapkit.map.InputListener;
 import com.yandex.mapkit.map.Map;
-import com.yandex.mapkit.map.MapObjectCollection;
-import com.yandex.mapkit.map.PolylineMapObject;
 import com.yandex.mapkit.mapview.MapView;
-import com.yandex.runtime.Error;
 import com.yandex.runtime.image.ImageProvider;
-import com.yandex.runtime.network.NetworkError;
+import com.yandex.mapkit.Animation;
+import com.yandex.mapkit.Animation.Type;
+
 
 public class MnogoStroyYandexMapView extends MapView {
     private static boolean isMapKitInitialized = false;
     private FrameLayout infoWindow;
     private OnMarkerClickListener onMarkerClickListener;
     private MapObjectTapListener mapObjectTapListener;
+    private List<Point> markers;
 
     public interface OnMarkerClickListener {
         void onMarkerClick(Point point, String markerId);
@@ -86,6 +83,8 @@ public class MnogoStroyYandexMapView extends MapView {
         }
         Log.d("MnogoStroyYandexMapView", "Initializing MnogoStroyYandexMapView.");
 
+        markers = new ArrayList<>();
+
         infoWindow = new FrameLayout(context);
         TextView infoText = new TextView(context);
         infoWindow.addView(infoText);
@@ -106,18 +105,23 @@ public class MnogoStroyYandexMapView extends MapView {
         int resourceId = getContext().getResources().getIdentifier("shop_marker", "drawable", getContext().getPackageName());
         placemark.setIcon(ImageProvider.fromResource(getContext(), resourceId));
         Log.d("MnogoStroyYandexMapView", "Shop added at: " + latitude + ", " + longitude + " with info: " + info);
+        markers.add(point);
     }
 
     public void zoomIn() {
-        this.getMap().move(new CameraPosition(this.getMap().getCameraPosition().getTarget(),
-                this.getMap().getCameraPosition().getZoom() + 1,
-                0.0f, 0.0f));
+        float currentZoom = this.getMap().getCameraPosition().getZoom();
+        float newZoom = currentZoom + 0.5f;
+        Animation animation = new Animation(Type.SMOOTH, 0.5f);
+
+        this.getMap().move(new CameraPosition(this.getMap().getCameraPosition().getTarget(), newZoom, 0.0f, 0.0f), animation, null);
     }
 
     public void zoomOut() {
-        this.getMap().move(new CameraPosition(this.getMap().getCameraPosition().getTarget(),
-                this.getMap().getCameraPosition().getZoom() - 1,
-                0.0f, 0.0f));
+        float currentZoom = this.getMap().getCameraPosition().getZoom();
+        float newZoom = currentZoom - 0.5f;
+        Animation animation = new Animation(Type.SMOOTH, 0.5f);
+
+        this.getMap().move(new CameraPosition(this.getMap().getCameraPosition().getTarget(), newZoom, 0.0f, 0.0f), animation, null);
     }
 
     public void changeCenter(double latitude, double longitude, float zoom) {
@@ -126,5 +130,58 @@ public class MnogoStroyYandexMapView extends MapView {
 
     public void clearMap() {
         this.getMap().getMapObjects().clear();
+
+         if (markers.isEmpty()) {
+            return;
+         }
+
+         markers.clear();
     }
+
+    public void zoomToFitAllMarkers() {
+    if (markers.isEmpty()) {
+        return;
+    }
+
+    double minLat = Double.MAX_VALUE;
+    double minLon = Double.MAX_VALUE;
+    double maxLat = Double.MIN_VALUE;
+    double maxLon = Double.MIN_VALUE;
+
+    for (Point marker : markers) {
+        if (marker.getLatitude() < minLat) minLat = marker.getLatitude();
+        if (marker.getLongitude() < minLon) minLon = marker.getLongitude();
+        if (marker.getLatitude() > maxLat) maxLat = marker.getLatitude();
+        if (marker.getLongitude() > maxLon) maxLon = marker.getLongitude();
+    }
+
+    double centerLat = (minLat + maxLat) / 2;
+    double centerLon = (minLon + maxLon) / 2;
+
+    double latDelta = maxLat - minLat;
+    double lonDelta = maxLon - minLon;
+
+    float zoomLevel = calculateZoomLevel(latDelta, lonDelta) - 0.8f;
+    Log.d("MnogoStroyYandexMapView", "zoomLevel: " + zoomLevel);
+    Log.d("MnogoStroyYandexMapView", "centerLat: " + centerLat);
+    Log.d("MnogoStroyYandexMapView", "centerLon: " + centerLon);
+
+    this.getMap().move(new CameraPosition(new Point(centerLat, centerLon), zoomLevel, 0.0f, 0.0f));
+}
+
+    private float calculateZoomLevel(double latDelta, double lonDelta) {
+    double mapWidth = 360.0;
+    double mapHeight = 180.0;
+
+    double latZoomFactor = mapHeight / latDelta;
+    double lonZoomFactor = mapWidth / lonDelta;
+
+    double zoomFactor = Math.min(latZoomFactor, lonZoomFactor);
+
+    double zoomLevel = Math.log(zoomFactor) / Math.log(2);
+
+    zoomLevel = Math.round(zoomLevel * 10.0) / 10.0;
+
+    return (float) Math.max(2f, Math.min(zoomLevel, 14f));
+}
 }
