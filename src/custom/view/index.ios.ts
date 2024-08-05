@@ -14,19 +14,86 @@ declare const MKMapItem: any
 declare const MKPlacemark: any
 declare const CLLocationCoordinate2DMake: any
 declare const YMKMapObject: any
-declare const YMKAnimation: any // Добавил объявление для YMKAnimation
+declare const YMKAnimation: any
 
-declare const YMKMapObjectTapListener: any
+interface YMKLayersGeoObjectTapListener extends NSObjectProtocol {
+  onObjectTapWithEvent(event: YMKGeoObjectTapEvent): boolean
+}
 
-class MyMapObjectTapListener implements YMKMapObjectTapListener {
-  constructor(private readonly callback: Function) {}
+declare var YMKLayersGeoObjectTapListener: {
+  prototype: YMKLayersGeoObjectTapListener
+}
 
-  onMapObjectTapWithMapObject(mapObject: YMKMapObject, point: YMKPoint) {
-    console.log('Marker tapped!')
-    // @ts-ignore
-    if (mapObject instanceof YMKPlacemarkMapObject) {
-      this.callback(mapObject, point)
-    }
+class NSCYMKLayersGeoObjectTapListener
+  implements YMKLayersGeoObjectTapListener
+{
+  public static ObjCProtocols = [YMKLayersGeoObjectTapListener]
+
+  onObjectTapWithEvent(event: any) {
+    console.log('onObjectTapWithEvent', event)
+    // const point = event.geoObject.geometry.get(0).point
+    // const cameraPosition = this.mapView.mapWindow.map.cameraPosition
+    // this.mapView.mapWindow.map.moveWithCameraPosition(
+    //   YMKCameraPosition.cameraPositionWithTargetZoomAzimuthTilt(
+    //     point,
+    //     cameraPosition.zoom,
+    //     cameraPosition.azimuth,
+    //     cameraPosition.tilt
+    //   ),
+    //   YMKAnimation.animationWithTypeDuration(1, 1.0),
+    //   null
+    // )
+    const name = event.geoObject.name || 'Unnamed geoObject'
+    console.log(`Tapped ${name} at (${point.latitude}, ${point.longitude})`)
+    this.onClick()
+    return true
+  }
+}
+
+interface YMKMapInputListener extends NSObjectProtocol {
+  onMapLongTapWithMapPoint(map: YMKMap, point: YMKPoint): void
+
+  onMapTapWithMapPoint(map: YMKMap, point: YMKPoint): void
+}
+
+declare var YMKMapInputListener: {
+  prototype: YMKMapInputListener
+}
+
+class NSCYMKMapInputListener implements YMKMapInputListener {
+  public static ObjCProtocols = [YMKMapInputListener]
+
+  onMapLongTapWithMapPoint(map: YMKMap, point: YMKPoint) {
+    console.log('onMapLongTapWithMapPoint', map, point)
+    this.onClick()
+    return true
+  }
+  onMapTapWithMapPoint(map: YMKMap, point: YMKPoint) {
+    // placemark.geometry = point
+    console.log('onMapTapWithMapPoint', map, point)
+    this.onClick()
+    return true
+  }
+}
+
+interface YMKMapObjectTapListener extends NSObjectProtocol {
+  onMapObjectTapWithMapObjectPoint(
+    mapObject: YMKMapObject,
+    point: YMKPoint
+  ): boolean
+}
+
+declare var YMKMapObjectTapListener: {
+  prototype: YMKMapObjectTapListener
+}
+
+class NSCYMKMapObjectTapListener implements YMKMapObjectTapListener {
+  public static ObjCProtocols = [YMKMapObjectTapListener]
+
+  onMapObjectTapWithMapObjectPoint(mapObject, point) {
+    console.log('Shop marker tapped:', mapObject, point)
+    this.onClick()
+    return true
   }
 }
 
@@ -42,7 +109,6 @@ export class YandexMapView extends View {
   }
 
   createNativeView() {
-    console.log(YMKMapObjectTapListener)
     // @ts-ignore
     if (!this.mapView) this.mapView = new YMKMapView()
 
@@ -74,6 +140,18 @@ export class YandexMapView extends View {
         0
       )
     this.mapView.mapWindow.map.moveWithCameraPosition(cameraPosition)
+    this.addTapListener()
+  }
+
+  addTapListener() {
+    const geoObjectTapListener = new NSCYMKLayersGeoObjectTapListener()
+
+    this.mapView.mapWindow.map.addTapListenerWithTapListener(
+      geoObjectTapListener
+    )
+
+    const inputListener = new NSCYMKMapInputListener()
+    this.mapView.mapWindow.map.addInputListenerWithInputListener(inputListener)
   }
 
   addShop(latitude: number, longitude: number, info: string) {
@@ -89,19 +167,8 @@ export class YandexMapView extends View {
 
     placemark.setIconWithImage(UIImage.imageNamed('shop_marker'))
 
-    console.log(mapObjects)
-    const callback = () => {
-      console.log('tapped callback')
-    }
+    const tapListener = new NSCYMKMapObjectTapListener()
 
-    const tapListener = new MyMapObjectTapListener(
-      (mapObject: any, point: any) => {
-        console.log('Shop marker tapped:', info)
-        if (this.onClick) {
-          this.onClick(latitude, longitude)
-        }
-      }
-    )
     placemark.addTapListenerWithTapListener(tapListener)
 
     this.markers.push(targetPoint)
